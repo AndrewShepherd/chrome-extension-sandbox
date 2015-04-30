@@ -5,6 +5,10 @@
 		}
 	},
 	"manifest_version" : 2,
-	"name": "Converter",
-	"version": "1.0.0"
+	"name": "Chapter2",
+	"version": "1.0.0",
+	"permissions": [
+	  "unlimitedStorage"
+	]
+	
 }

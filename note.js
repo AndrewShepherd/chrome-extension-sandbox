@@ -48,13 +48,121 @@ function errorHandler(e) {
 
 function Persister() {
   
+
+
+  
+
+  
+  function haveNoteDirectory(de) {
+    showMessage('haveNoteDirectory invoked', true);
+    directoryEntry = de;
+    read();
+  }
+
+
+  
+  var fileSystemReady = new Promise(function (resolve, reject) {
+
+    var requestFileSystem = window.webkitRequestFileSystem || window.requestFileSystem;
+    requestFileSystem(PERSISTENT, 0, resolve, reject);
+
+  });
+
+
+  // Not sure the best way to chain promises
+  var noteDirectoryReady = new Promise(function (resolve, reject) {
+      fileSystemReady.then(function(fs) {
+        showMessage('fileSystemReady promise fulfilled', true);
+        fs.root.getDirectory(
+          "Note",
+          {
+            create: true,
+            exclusive: false
+          },
+          resolve,
+          errorHandler
+        );
+      },
+      reject);
+  });
+
+
+  var fileEntryReady = new Promise(function (resolve, reject) {
+    noteDirectoryReady.then(function(directoryEntry) {
+       showMessage('Directory promise fulfilled', true);
+       directoryEntry.getFile(
+        'note.txt',
+        {
+          create: true,
+          exclusive: false
+        },
+        resolve,
+        reject
+        );
+    },
+    reject);
+  });
+
+  function haveFile(file) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      document.querySelector("#textarea").value = reader.result;
+    };
+    reader.readAsText(file);
+  }
+
+  function read() {
+    getFileEntry(
+        function() {
+          if(fileEntry) {
+            fileEntry.file(haveFile, errorHandler);
+          }
+        }
+      );
+  }
+
   
   this.read = function(callback) {
-    
-  }
+    fileEntryReady.then(function(fileEntry) {
+      showMessage('fileReady promise fulfilled', true);
+
+      fileEntry.file(function(file) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          callback(reader.result);
+        };
+        reader.readAsText(file);
+      }, 
+      errorHandler
+      );
+    },
+    errorHandler);
+  };
   
   this.save = function(text) {
-    
+    showMessage('Persister.save invoked', true);  
+    fileEntryReady.then(function (fileEntry) {
+      showMessage('Persister.save - fileEntryReady promise fulfilled', true);
+      fileEntry.createWriter(function (fileWriter) {
+        var blob = new Blob(
+                                [text],
+                                {type: 'text/plain'}
+                            );
+        fileWriter.onwrite = function(e) {
+            dirty = false;
+            showMessage("Saved", true);
+          };
+        fileWriter.write(blob);
+      },
+      errorHandler)
+    });
+    getFileEntry(
+        function() {
+          showMessage("save: getFileEntry anonymous callback");
+
+
+        }
+      );   
   }
 }
 
@@ -91,42 +199,11 @@ function getFileEntry(callback) {
 }
 
 
-function haveFile(file) {
-  var reader = new FileReader();
-  reader.onload = function() {
-    document.querySelector("#textarea").value = reader.result;
-  };
-  reader.readAsText(file);
-}
 
-function read() {
-  getFileEntry(
-      function() {
-        if(fileEntry) {
-          fileEntry.file(haveFile, errorHandler);
-        }
-      }
-    );
-}
 
-function haveNoteDirectory(de) {
-  showMessage('haveNoteDirectory invoked', true);
-  directoryEntry = de;
-  read();
-}
 
-function haveFileSystem(fs) {
-  showMessage('haveFileSystem invoked!', true);
-  fs.root.getDirectory(
-    "Note", 
-    {
-      create: true,
-      exclusive: false
-    },
-    haveNoteDirectory,
-    errorHandler
-  );
-}
+
+
 
 
 
@@ -134,30 +211,17 @@ function haveFileSystem(fs) {
 var persister = new Persister();
 
 function save(e) {
-  showMessage("You clicked save!", true);
-  getFileEntry(
-      function() {
-        showMessage("save: getFileEntry anonymous callback");
-        fileWriter.onWrite = function(e) {
-          dirty = false;
-          showMessage("Saved", true);
-        };
-        var blob = new Blob(
-                              [document.querySelector("#textarea").value],
-                              {type: 'text/plain'}
-                          );
-        fileWriter.write(blob);
-      }
-    );
+  
+  var text = document.querySelector('#textarea').value;
+  persister.save(text);
+  
 }
 
 
 window.onload = function() {
-  
   persister.read(function(text) {
-        document.querySelector("#textarea").value = reader.result;
+        document.querySelector("#textarea").value = text;
   });
-  var requestFileSystem = window.webkitRequestFileSystem || window.requestFileSystem;
-  requestFileSystem(PERSISTENT, 0, haveFileSystem, errorHandler);
+
   document.querySelector("#save").addEventListener("click", save);
 };

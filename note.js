@@ -50,27 +50,23 @@ function Persister() {
     requestFileSystem(PERSISTENT, 0, resolve, reject);
   });
 
-
-  // Not sure the best way to chain promises
-  var noteDirectoryReady = new Promise(function (resolve, reject) {
-      fileSystemReady.then(function(fs) {
-        showMessage('fileSystemReady promise fulfilled', true);
-        fs.root.getDirectory(
+  var noteDirectoryReady = fileSystemReady.then(function(fs) {
+    return new Promise(function(resolve, reject) {
+      fs.root.getDirectory(
           "Note",
           {
             create: true,
             exclusive: false
           },
           resolve,
-          errorHandler
+          reject
         );
-      },
-      reject);
+    });
   });
 
-  var fileEntryReady = new Promise(function (resolve, reject) {
-    noteDirectoryReady.then(function(directoryEntry) {
-       showMessage('Directory promise fulfilled', true);
+  var fileEntryReady = noteDirectoryReady.then(function(directoryEntry) {
+    return new Promise(function(resolve, reject) {
+      showMessage('Directory promise fulfilled', true);
        directoryEntry.getFile(
         'note.txt',
         {
@@ -80,10 +76,9 @@ function Persister() {
         resolve,
         reject
         );
-    },
-    reject);
+    });
   });
-  
+
   this.read = function(callback) {
     fileEntryReady.then(function(fileEntry) {
       showMessage('fileReady promise fulfilled', true);
@@ -114,14 +109,14 @@ function Persister() {
 				fileWriter.onwrite = function() {
 					dirty = false;
 					showMessage("Saved", true);
-				}
+				};
 				fileWriter.write(blob);
 			};
 		fileWriter.truncate(0);
       },
-      errorHandler)
+      errorHandler);
     });
-  }
+  };
 }
 
 
